@@ -15,8 +15,8 @@ index = 11
 
 
 def app_launch_lifecyle(rpc, bundleid):
-    traceCodesFile = InstrumentDeviceInfo(rpc).traceCodesFile()
-    Kperf = KperfData(traceCodesFile)
+    trace_codes_file = InstrumentDeviceInfo(rpc).traceCodesFile()
+    Kperf = KperfData(trace_codes_file)
     machTimeInfo = rpc.call("com.apple.instruments.server.services.deviceinfo", "machTimeInfo").selector
     usecs_since_epoch = rpc.lockdown.get_value(key='TimeIntervalSince1970') * 1000000
     LifeCycle = AppLifeCycle(machTimeInfo, usecs_since_epoch)
@@ -73,5 +73,6 @@ def app_launch_lifecyle(rpc, bundleid):
 
 if __name__ == '__main__':
     rpc = InstrumentServer().init()
-    app_launch_lifecyle(rpc, 'rn.notes.best')
+    # app_launch_lifecyle(rpc, 'rn.notes.best')
+    app_launch_lifecyle(rpc, 'com.jd.jdmobilelite')
     rpc.stop()

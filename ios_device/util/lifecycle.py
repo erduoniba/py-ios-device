@@ -3,6 +3,9 @@ from collections import namedtuple, defaultdict
 
 from ios_device.util.kperf_data import KdBufParser
 
+# 数据格式如下：
+# AppLifeEvent(period='Initializing', sub_state='System Interface Initialization (Dyld init)',
+# time=5162599889374, thread=(4040, 'JDMobileLite'), kind='BEGIN', code=520552500)
 AppLifeEvent = namedtuple('AppLifeEvent', ['period', 'sub_state', 'time', 'thread', 'kind', 'code'])
 
 
@@ -50,28 +53,34 @@ class AppLifeCycle:
             for event in events:
                 if event.sub_state == 'Initial Frame Rendering' and event.kind == 'BEGIN':
                     finish = True
+                    break
             if len(events) == 0:
                 continue
             last_event = events[-1]
             if events and last_event.sub_state == 'Initial Frame Rendering' and last_event.kind == 'END' and finish:
                 for index, val in enumerate(events):
                     if val.kind == 'BEGIN':
+                        # 保存该阶段的开始时间
                         _tmp_sub_state[val.sub_state] = self.format_timestamp(val.time)
                     elif val.kind == 'END':
+                        end_time = self.format_timestamp(val.time)
                         if val.sub_state in _tmp_sub_state:
-                            end_time = self.format_timestamp(val.time)
+                            # 使用 end_time 和 保存的开始时间得到该阶段的耗时数据
                             _tmp_time = end_time - _tmp_sub_state[val.sub_state]
                             print(f'{convertTime(_tmp_time):>10}   {val.period}-{val.sub_state}')
                             del _tmp_sub_state[val.sub_state]
                         else:
-                            end_time = self.format_timestamp(val.time)
-                            _tmp_time = end_time - self.format_timestamp(events[index-1].time)
-                            print(f'{convertTime(_tmp_time):>10} {val.period}-{val.sub_state}')
+                            # 如果没有记录到开始时间，则用当前时间减去最后一个记录的时间（这里其实是脏数据)）
+                            _tmp_time = end_time - self.format_timestamp(last_event.time)
+                            # print(f'{convertTime(_tmp_time):>10} {val.period}-{val.sub_state}')
 
-                total_time = self.format_timestamp(events[-1].time) - self.format_timestamp(events[0].time)
+                total_time = self.format_timestamp(last_event.time) - self.format_timestamp(events[0].time)
+                print(self.events)
                 print(f'App Thread Process ID:{key[0]} Name:{key[1]}, Process Total Time:{convertTime(total_time)}')
                 self.events[key].clear()
 
+    # 这里的代码需要参考如下文件代码来实现
+    # /Applications/Xcode.app/Contents/Applications/Instruments.app/Contents/Packages/Apps.instrdst/Contents/Extensions/com.apple.dt.app-life-cycle.dtac/modeling-rules/rules-0004.clp
     def decode_app_lifecycle(self, event: KdBufParser, thread):
         if event.class_code == 0x1f:  # dyld-init
             if event.subclass_code == 0x7 and event.final_code == 13:
